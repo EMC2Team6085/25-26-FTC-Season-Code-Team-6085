@@ -1,0 +1,203 @@
+/* FTC season 2025-2026 "Decode" onbot java code made by team 6085 EMC^2
+Code is split into multiple functions for better readability. There are functions for apriltag detection,
+using mecanum wheels, misc motors (all non wheel motors), etc.
+*/
+package org.firstinspires.ftc.teamcode;
+
+// Import libraries for everything used
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.Range;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagLibrary;
+import org.firstinspires.ftc.vision.apriltag.AprilTagMetadata;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import java.util.List;
+
+@TeleOp(name = "AprilTagDriveCode", group = "Linear Opmode")
+public class AprilTagDriveCode extends LinearOpMode {
+
+    // Define hardware and value names
+    private DcMotor leftRear, rightRear, leftFront, rightFront, intakeMotor, cannonMotor;
+    private CRServo testServo;
+    
+    double leftY, rightY, leftX, rightX;
+    double leftRearPower, rightRearPower, leftFrontPower, rightFrontPower, intakePower, cannonPower;
+    
+
+    AprilTagProcessor aprilTagProcessor;
+    VisionPortal visionPortal;
+
+    @Override
+    public void runOpMode() {
+        // Initialize everything
+        leftRear = hardwareMap.get(DcMotor.class, "leftRear");
+        rightRear = hardwareMap.get(DcMotor.class, "rightRear");
+        leftFront = hardwareMap.get(DcMotor.class, "leftFront");
+        rightFront = hardwareMap.get(DcMotor.class, "rightFront");
+        intakeMotor = hardwareMap.get(DcMotor.class, "intakeMotor");
+        cannonMotor = hardwareMap.get(DcMotor.class, "cannonMotor");
+        
+        testServo = hardwareMap.get(CRServo.class, "testServo");
+
+        rightRear.setDirection(DcMotor.Direction.REVERSE);
+        rightFront.setDirection(DcMotor.Direction.REVERSE);
+        
+        leftRear.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightRear.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+        initializeVisionPortal();
+
+        telemetry.addLine("♫They call me Gato. I have metal joints. Beat me up and earn 15 silver points♫.");
+        telemetry.update();
+        
+        waitForStart();
+
+        // Main teleop loop
+        while (opModeIsActive()) {
+            sendWheelPower();
+            sendMotorPower();
+            displayVisionPortalData();
+            telemetry.update();
+        }
+    }
+
+    // Functions for AprilTag data
+    public void initializeVisionPortal() {
+        VisionPortal.Builder visionPortalBuilder = new VisionPortal.Builder();
+        AprilTagLibrary.Builder tagLibraryBuilder = new AprilTagLibrary.Builder();
+
+        // Tell code what tags to look for
+        tagLibraryBuilder.addTag(new AprilTagMetadata(20, "bluGoal", 0.166, DistanceUnit.METER));
+        tagLibraryBuilder.addTag(new AprilTagMetadata(24, "redGoal", 0.166, DistanceUnit.METER));
+        AprilTagLibrary decodeTagLibrary = tagLibraryBuilder.build();
+
+        // Make detector for apriltags
+        aprilTagProcessor = new AprilTagProcessor.Builder()
+                .setTagLibrary(decodeTagLibrary)
+                .build();
+
+        // Tell code what webcam to use
+        visionPortalBuilder
+                .setCamera(hardwareMap.get(WebcamName.class, "turretCam"))
+                .addProcessor(aprilTagProcessor);
+
+        visionPortal = visionPortalBuilder.build();
+    }
+
+    public void displayVisionPortalData() {
+        // Add telemetry for each apriltag and its position data
+        List<AprilTagDetection> aprilTagDetections = aprilTagProcessor.getDetections();
+
+        for (AprilTagDetection detection : aprilTagDetections) {
+            telemetry.addData("ID", detection.id);
+
+            // Make sure to not try to add telemetry of data that does not exist
+            if (detection.ftcPose != null) {
+                telemetry.addData("Range", detection.ftcPose.range);
+                telemetry.addData("xDistance", detection.ftcPose.x);
+                telemetry.addData("yDistance", detection.ftcPose.y);
+                telemetry.addData("Yaw", detection.ftcPose.yaw);
+                
+                
+                 if (detection.ftcPose.x < -2) {
+                    testServo.setPower(-.1);
+                } else if (detection.ftcPose.x > 2){
+                   testServo.setPower(.1);
+                }
+                
+            } else {
+                telemetry.addLine("Null Data (and that makes me a sad panda˙◠˙)");
+            }
+        }
+    }
+
+    // Function for wheel power
+    public void sendWheelPower() {
+        leftY = gamepad1.left_stick_y;
+        rightY = gamepad1.right_stick_y;
+        leftX = -gamepad1.left_stick_x;
+        rightX = -gamepad1.right_stick_x;
+
+        // D-pad controls
+        if (gamepad1.dpad_up) {
+            leftRearPower = -0.5;
+            rightRearPower = -0.5;
+            leftFrontPower = -0.5;
+            rightFrontPower = -0.5;
+        } else if (gamepad1.dpad_down) {
+            leftRearPower = 0.5;
+            rightRearPower = 0.5;
+            leftFrontPower = 0.5;
+            rightFrontPower = 0.5;
+        } else if (gamepad1.dpad_left) {
+            leftRearPower = -0.5;
+            rightRearPower = 0.5;
+            leftFrontPower = 0.5;
+            rightFrontPower = -0.5;
+        } else if (gamepad1.dpad_right) {
+            leftRearPower = 0.5;
+            rightRearPower = -0.5;
+            leftFrontPower = -0.5;
+            rightFrontPower = 0.5;
+        } else {
+            // Use joystick powers if no D-pad buttons are pressed
+            leftRearPower = (rightY - rightX);
+            rightRearPower = (leftY + leftX);
+            leftFrontPower = (rightY + leftX);
+            rightFrontPower = (leftY - leftX);
+        }
+
+        // Make powers not go outside of -1,1
+        leftRearPower = Range.clip(leftRearPower, -1.0, 1.0);
+        rightRearPower = Range.clip(rightRearPower, -1.0, 1.0);
+        leftFrontPower = Range.clip(leftFrontPower, -1.0, 1.0);
+        rightFrontPower = Range.clip(rightFrontPower, -1.0, 1.0);
+
+        // Send powers to motors at 90%
+        leftRear.setPower(-leftRearPower * .90);
+        rightRear.setPower(-rightRearPower * .90);
+        leftFront.setPower(-leftFrontPower * .90);
+        rightFront.setPower(-rightFrontPower * .90);
+
+        // Add telemetry for wheel power in percent format
+        telemetry.addData("leftRearPower ", Math.round(leftRearPower * -100) + " %");
+        telemetry.addData("rightRearPower ", Math.round(rightRearPower * -100) + " %");
+        telemetry.addData("leftFrontPower ", Math.round(leftFrontPower * -100) + " %");
+        telemetry.addData("rightFrontPower ", Math.round(rightFrontPower * -100) + " %");
+    }
+    
+    // Function for misc motor power
+    public void sendMotorPower() {
+        // If statement for intake
+            if (gamepad1.left_trigger > .1) {
+                intakePower = -.75;
+            } else if (gamepad1.left_bumper) {
+                intakePower = .75;
+            } else {
+                intakePower = 0;
+            }
+            // If statement for cannon
+            if (gamepad1.right_trigger > .1) {
+                cannonPower = -.75;
+            } else if (gamepad1.right_bumper) {
+                cannonPower = .75;
+            } else {
+                cannonPower = 0;
+            }
+        // Set motor powers
+        intakeMotor.setPower(intakePower);
+        cannonMotor.setPower(cannonPower);
+        // Add telemetry for motor power in percent format
+        telemetry.addData("intakePower", Math.round(intakePower * -100) + " %");
+        telemetry.addData("cannonPower", Math.round(cannonPower * 100) + " %");
+}
+}
