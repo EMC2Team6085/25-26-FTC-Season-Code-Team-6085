@@ -1,0 +1,185 @@
+package org.firstinspires.ftc;
+
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.util.ElapsedTime;
+
+@Autonomous
+
+public class AutoFar extends LinearOpMode {
+    
+    private DcMotor leftRear, rightRear, leftFront, rightFront, intakeMotor, leftCannonMotor, rightCannonMotor;
+    private Servo rampServo, rampServoB;
+    
+    double leftY, rightY, leftX, rightX;
+    double leftRearPower, rightRearPower, leftFrontPower, rightFrontPower, intakePower, cannonPower;
+    int goalID;
+    int step = 0;
+    boolean goalColor = true, manualMode = false; // Color, not colour. Get it right brits.
+
+    @Override
+    public void runOpMode() {
+       // Initialize everything
+        leftRear = hardwareMap.get(DcMotor.class, "leftRear");
+        rightRear = hardwareMap.get(DcMotor.class, "rightRear");
+        leftFront = hardwareMap.get(DcMotor.class, "leftFront");
+        rightFront = hardwareMap.get(DcMotor.class, "rightFront");
+        intakeMotor = hardwareMap.get(DcMotor.class, "intakeMotor");
+        leftCannonMotor = hardwareMap.get(DcMotor.class, "leftCannonMotor");
+        rightCannonMotor = hardwareMap.get(DcMotor.class, "rightCannonMotor");
+        
+        rampServo = hardwareMap.get(Servo.class, "rampServo");
+        rampServoB = hardwareMap.get(Servo.class, "rampServoB");
+        
+        // Reverse motor direction
+        rightRear.setDirection(DcMotor.Direction.REVERSE);
+        rightFront.setDirection(DcMotor.Direction.REVERSE);
+        
+        // Make motors lock in place if no power is being applied
+        leftRear.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightRear.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        leftCannonMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightCannonMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        
+        initializeVisionPortal();
+        rampServo.setPosition(.75);
+        telemetry.addLine("♫They call me Gato. I have metal joints. Beat me up and earn 15 silver points♫.");
+        telemetry.update();
+        
+        waitForStart();
+        
+        if (opModeIsActive()) {
+
+        }
+    }
+    private void wheelControl(int leftRearT, int rightRearT, int leftFrontT, int rightFrontT,
+        boolean globalP, double leftRearP, double rightRearP, double leftFrontP, double rightFrontP) {
+        step += 1;
+        telemetry.addData("Step ", step);
+        telemetry.update();
+        leftRear.setPower(0);
+        rightRear.setPower(0);
+        leftFront.setPower(0);
+        rightFront.setPower(0);
+
+        leftRear.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightRear.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        
+        if (globalP == false){
+            leftRear.setPower(leftRearP);
+            rightRear.setPower(rightRearP);
+            leftFront.setPower(leftFrontP);
+            rightFront.setPower(rightFrontP); 
+        } else {
+            leftRear.setPower(leftRearP);
+            rightRear.setPower(leftRearP);
+            leftFront.setPower(leftRearP);
+            rightFront.setPower(leftRearP);
+        }
+
+        leftRear.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        rightRear.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        leftFront.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        rightFront.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        leftRear.setTargetPosition(leftRearT);
+        rightRear.setTargetPosition(rightRearT);
+        leftFront.setTargetPosition(leftFrontT);
+        rightFront.setTargetPosition(rightFrontT);
+
+        while (opModeIsActive()) {
+
+            if (Math.abs(leftRear.getCurrentPosition() - leftRearT) <= 15
+                && Math.abs(rightRear.getCurrentPosition() - rightRearT) <= 15
+                && Math.abs(leftFront.getCurrentPosition() - leftFrontT) <= 15
+                && Math.abs(rightFront.getCurrentPosition() - rightFrontT) <= 15)
+             {
+                break;
+            }
+        }
+        leftRear.setPower(0);
+        rightRear.setPower(0);
+        leftFront.setPower(0);
+        rightFront.setPower(0);
+    }
+
+private void intake(int intake){
+    intakeMotor.setPower(intake);
+}
+
+private void shoot(double angle, double power){
+    rampServo.setPosition(angle);
+    leftCannonMotor.setPower(power);
+    rightCannonMotor.setPower(-power);
+}
+
+
+
+public void initializeVisionPortal() {
+        /* camera currently not on robot. hope to add camera for next comp
+        VisionPortal.Builder visionPortalBuilder = new VisionPortal.Builder();
+        AprilTagLibrary.Builder tagLibraryBuilder = new AprilTagLibrary.Builder();
+
+        // Tell code what tags to look for
+        tagLibraryBuilder.addTag(new AprilTagMetadata(20, "bluGoal", 0.166, DistanceUnit.METER));
+        tagLibraryBuilder.addTag(new AprilTagMetadata(21, "GPP", 0.166, DistanceUnit.METER));
+        tagLibraryBuilder.addTag(new AprilTagMetadata(22, "PGP", 0.166, DistanceUnit.METER));
+        tagLibraryBuilder.addTag(new AprilTagMetadata(23, "PPG", 0.166, DistanceUnit.METER));
+        tagLibraryBuilder.addTag(new AprilTagMetadata(24, "redGoal", 0.166, DistanceUnit.METER));
+        AprilTagLibrary decodeTagLibrary = tagLibraryBuilder.build();
+
+        // Make detector for apriltags
+        aprilTagProcessor = new AprilTagProcessor.Builder()
+                .setTagLibrary(decodeTagLibrary)
+                .build();
+
+        // Tell code what webcam to use
+        visionPortalBuilder
+                .setCamera(hardwareMap.get(WebcamName.class, "turretCam"))
+                .addProcessor(aprilTagProcessor);
+
+        visionPortal = visionPortalBuilder.build();
+        */
+    }
+
+    public void displayVisionPortalData() {
+        /* camera currently not on robot. hope to add camera for next comp
+        // Add telemetry for each apriltag and its position data
+        List<AprilTagDetection> aprilTagDetections = aprilTagProcessor.getDetections();
+
+        for (AprilTagDetection detection : aprilTagDetections) {
+            telemetry.addData("ID", detection.id);
+
+            // Make sure to not try to add telemetry of data that does not exist
+            if (detection.ftcPose != null && detection.id == goalID) {
+                telemetry.addData("Range", detection.ftcPose.range);
+                telemetry.addData("xDistance", detection.ftcPose.x);
+                telemetry.addData("yDistance", detection.ftcPose.y);
+                telemetry.addData("Yaw", detection.ftcPose.yaw);
+                
+                // Check for if looking at pattern tag
+            } else if (detection.ftcPose != null && detection.id == 21) {
+                // GPP
+            } else if (detection.ftcPose != null && detection.id == 22) {
+                // PGP
+            } else if (detection.ftcPose != null && detection.id == 23) {
+                // PPG
+                    }  
+            else if (detection.ftcPose == null) {
+                // If ftcPose data is null
+                telemetry.addLine("Null Data (and that makes me a sad panda˙◠˙)");
+            } 
+        }
+        */
+    }    
+    
+}
